@@ -1,0 +1,1 @@
+export { makeExifModule } from './makeExifModule';
