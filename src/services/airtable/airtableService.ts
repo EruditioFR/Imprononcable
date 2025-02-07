@@ -32,7 +32,7 @@ export class AirtableService {
       const filterFormula = `OR(${authorizedIds.map(id => `RECORD_ID()='${id}'`).join(',')})`;
 
       const records = await this.table.select({
-        maxRecords: 100,
+      
         view: 'Grid view',
         sort: [{ field: 'Title', direction: 'asc' }],
         filterByFormula: filterFormula

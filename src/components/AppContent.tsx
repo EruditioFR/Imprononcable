@@ -21,7 +21,6 @@ import { EditImagePage } from '../pages/EditImagePage';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage';
 import { Header } from './Layout/Header';
 import { Navigation } from './Layout/Navigation';
-import { Footer } from './Layout/Footer';
 import { LoginForm } from './Auth/LoginForm';
 import { RoleGuard } from './RoleGuard';
 import { useAuth } from '../contexts/AuthContext';
@@ -43,126 +42,123 @@ export default function AppContent() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gray-50">
         <Header />
         <Navigation />
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/banque-images" element={<GalleryPage />} />
-            <Route path="/ressources" element={<ProcessCreatif />} />
-            <Route path="/ressources/:id" element={<ProcessCreatifDetailPage />} />
-            <Route path="/ensemble" element={<BlogPage />} />
-            <Route path="/ensemble/:id" element={<BlogPostPage />} />
-            
-            {/* Admin Routes */}
-            <Route 
-              path="/admin"
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <AdminDashboardPage />
-                </RoleGuard>
-              }
-            />
-            <Route 
-              path="/ressources/manage" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <ProcessCreatifManagementPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/ressources/edit/:id" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <EditProcessCreatifPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/ressources/add" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <AddProcessCreatif />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/ensemble/manage" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <BlogManagementPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/ensemble/create" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <CreateBlogPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/ensemble/edit/:id" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <EditBlogPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/banque-images/admin"
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <ImageBankAdminPage />
-                </RoleGuard>
-              }
-            />
-            <Route 
-              path="/banque-images/add"
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <AddImagePage />
-                </RoleGuard>
-              }
-            />
-            <Route 
-              path="/banque-images/edit/:id"
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <EditImagePage />
-                </RoleGuard>
-              }
-            />
-            <Route 
-              path="/users" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <UsersPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/users/create" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <EditUserPage />
-                </RoleGuard>
-              } 
-            />
-            <Route 
-              path="/users/:userId" 
-              element={
-                <RoleGuard requiredRole="Administrateur">
-                  <EditUserPage />
-                </RoleGuard>
-              } 
-            />
-          </Routes>
-        </main>
-        <Footer />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/banque-images" element={<GalleryPage />} />
+          <Route path="/ressources" element={<ProcessCreatif />} />
+          <Route path="/ressources/:id" element={<ProcessCreatifDetailPage />} />
+          <Route path="/ensemble" element={<BlogPage />} />
+          <Route path="/ensemble/:id" element={<BlogPostPage />} />
+          
+          {/* Admin Routes */}
+          <Route 
+            path="/admin"
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <AdminDashboardPage />
+              </RoleGuard>
+            }
+          />
+          <Route 
+            path="/ressources/manage" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <ProcessCreatifManagementPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/ressources/edit/:id" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <EditProcessCreatifPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/ressources/add" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <AddProcessCreatif />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/ensemble/manage" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <BlogManagementPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/ensemble/create" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <CreateBlogPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/ensemble/edit/:id" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <EditBlogPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/banque-images/admin"
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <ImageBankAdminPage />
+              </RoleGuard>
+            }
+          />
+          <Route 
+            path="/banque-images/add"
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <AddImagePage />
+              </RoleGuard>
+            }
+          />
+          <Route 
+            path="/banque-images/edit/:id"
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <EditImagePage />
+              </RoleGuard>
+            }
+          />
+          <Route 
+            path="/users" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <UsersPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/users/create" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <EditUserPage />
+              </RoleGuard>
+            } 
+          />
+          <Route 
+            path="/users/:userId" 
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <EditUserPage />
+              </RoleGuard>
+            } 
+          />
+        </Routes>
       </div>
     </Router>
   );
