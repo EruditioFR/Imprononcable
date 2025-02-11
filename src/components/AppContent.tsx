@@ -19,13 +19,15 @@ import { ImageBankAdminPage } from '../pages/ImageBankAdminPage';
 import { AddImagePage } from '../pages/AddImagePage';
 import { EditImagePage } from '../pages/EditImagePage';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage';
+import { SharedAlbumPage } from '../pages/SharedAlbumPage';
+import { SharedAlbumsManagementPage } from '../pages/SharedAlbumsManagementPage';
 import { Header } from './Layout/Header';
 import { Navigation } from './Layout/Navigation';
 import { LoginForm } from './Auth/LoginForm';
 import { RoleGuard } from './RoleGuard';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function AppContent() {
+export function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
 
   if (authLoading) {
@@ -33,6 +35,17 @@ export default function AppContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
       </div>
+    );
+  }
+
+  // Special case for shared albums - no auth required
+  if (window.location.pathname.startsWith('/shared-albums/') && !window.location.pathname.includes('/manage')) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/shared-albums/:id" element={<SharedAlbumPage />} />
+        </Routes>
+      </Router>
     );
   }
 
@@ -52,6 +65,7 @@ export default function AppContent() {
           <Route path="/ressources/:id" element={<ProcessCreatifDetailPage />} />
           <Route path="/ensemble" element={<BlogPage />} />
           <Route path="/ensemble/:id" element={<BlogPostPage />} />
+          <Route path="/shared-albums/:id" element={<SharedAlbumPage />} />
           
           {/* Admin Routes */}
           <Route 
@@ -59,6 +73,14 @@ export default function AppContent() {
             element={
               <RoleGuard requiredRole="Administrateur">
                 <AdminDashboardPage />
+              </RoleGuard>
+            }
+          />
+          <Route 
+            path="/shared-albums/manage"
+            element={
+              <RoleGuard requiredRole="Administrateur">
+                <SharedAlbumsManagementPage />
               </RoleGuard>
             }
           />
@@ -163,5 +185,3 @@ export default function AppContent() {
     </Router>
   );
 }
-
-export { AppContent }

@@ -6,6 +6,7 @@ import {
   FileText, 
   Newspaper,
   Users,
+  Album,
   Plus
 } from 'lucide-react';
 import { useRoleCheck } from '../hooks/useRoleCheck';
@@ -42,6 +43,14 @@ export function AdminDashboardPage() {
       links: [
         { to: '/banque-images/admin', label: 'Gérer les images' },
         { to: '/banque-images/add', label: 'Ajouter une image', primary: true }
+      ]
+    },
+    {
+      title: 'Albums partagés',
+      icon: Album,
+      description: 'Gérez les albums partagés, leurs accès et leurs dates d\'expiration.',
+      links: [
+        { to: '/shared-albums/manage', label: 'Gérer les albums' }
       ]
     },
     {

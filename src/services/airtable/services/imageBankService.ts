@@ -7,30 +7,45 @@ import type { Image } from '../../../types/gallery';
 export class ImageBankService {
   private base: Airtable.Base;
   private readonly MAX_RETRIES = 3;
-  private readonly RETRY_DELAY = 1000; // 1 second
+  private readonly RETRY_DELAY = 1000;
+  private readonly PAGE_SIZE = 100;
+  private readonly CONCURRENT_REQUESTS = 3;
 
   constructor() {
-    Airtable.configure({ 
-      apiKey: AIRTABLE_CONFIG.apiKey,
-      endpointUrl: 'https://api.airtable.com',
-      apiVersion: '0.1.0',
-      noRetryIfRateLimited: true // We'll handle retries ourselves
-    });
-    this.base = new Airtable().base(AIRTABLE_CONFIG.baseId);
+    try {
+      Airtable.configure({ 
+        apiKey: AIRTABLE_CONFIG.apiKey,
+        endpointUrl: 'https://api.airtable.com',
+        apiVersion: '0.1.0',
+        noRetryIfRateLimited: false, // Enable built-in retries
+        requestTimeout: 300000 // Increase timeout to 5 minutes
+      });
+      this.base = new Airtable().base(AIRTABLE_CONFIG.baseId);
+    } catch (error) {
+      logError('ImageBankService', 'Failed to initialize service', error);
+      throw new AirtableError('Failed to initialize Airtable service');
+    }
   }
 
   private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  private async fetchWithRetry(operation: () => Promise<any>, attempt: number = 0): Promise<any> {
+  private async withRetry<T>(operation: () => Promise<T>, attempt = 0): Promise<T> {
     try {
       return await operation();
     } catch (error) {
-      if (error instanceof Error && error.message.includes('rate_limit') && attempt < this.MAX_RETRIES) {
-        logInfo('ImageBankService', `Rate limited, retrying in ${this.RETRY_DELAY}ms (attempt ${attempt + 1}/${this.MAX_RETRIES})`);
-        await this.sleep(this.RETRY_DELAY * Math.pow(2, attempt));
-        return this.fetchWithRetry(operation, attempt + 1);
+      const isRateLimit = error instanceof Error && 
+        (error.message.includes('rate_limit') || error.message.includes('429'));
+      
+      const isNetworkError = error instanceof Error &&
+        (error.message.includes('network') || error.message.includes('timeout'));
+      
+      if ((isRateLimit || isNetworkError) && attempt < this.MAX_RETRIES) {
+        const delay = this.RETRY_DELAY * Math.pow(2, attempt);
+        logInfo('ImageBankService', `Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${this.MAX_RETRIES})`);
+        await this.sleep(delay);
+        return this.withRetry(operation, attempt + 1);
       }
       throw error;
     }
@@ -40,21 +55,35 @@ export class ImageBankService {
     try {
       logInfo('ImageBankService', 'Starting image fetch', { clientId });
 
-      const allRecords = [];
+      let allRecords = [];
       let offset: string | undefined;
       let pageCount = 0;
 
       do {
         try {
-          // Utiliser select() au lieu de all() pour un meilleur contrôle
+          const filterFormula = clientId 
+            ? `{Client} = '${clientId}'`
+            : '';
+
           const query = this.base(AIRTABLE_CONFIG.tables.images).select({
-            pageSize: 100,
+            pageSize: this.PAGE_SIZE,
             offset,
-            view: 'Grid view'
+            view: 'Grid view',
+            filterByFormula: filterFormula,
+            fields: [
+              'Nom image',
+              'url drpbx HD',
+              'url drpbx miniatures',
+              'Format',
+              'Projet',
+              'tags proposés',
+              'Client',
+              'debut_droits',
+              'fin_droits'
+            ]
           });
 
-          // Récupérer une page avec retry
-          const page = await this.fetchWithRetry(() => query.firstPage());
+          const page = await this.withRetry(() => query.firstPage());
           
           pageCount++;
           logInfo('ImageBankService', `Fetched page ${pageCount}`, {
@@ -65,17 +94,23 @@ export class ImageBankService {
           allRecords.push(...page);
           offset = query.offset;
 
-          // Pause entre les pages pour éviter le rate limiting
           if (offset) {
-            await this.sleep(250);
+            await this.sleep(250); // Rate limit prevention
           }
 
         } catch (error) {
-          logError('ImageBankService', 'Error fetching page', error);
-          throw new AirtableError(
-            `Failed to fetch page ${pageCount + 1}`,
-            error instanceof Error ? error : undefined
-          );
+          if (error instanceof Error) {
+            if (error.message.includes('AUTHENTICATION_REQUIRED')) {
+              throw new AirtableError('Authentication failed - please check your API key');
+            }
+            if (error.message.includes('NOT_FOUND')) {
+              throw new AirtableError('Table or base not found - please check your configuration');
+            }
+            if (error.message.includes('INVALID_PERMISSIONS')) {
+              throw new AirtableError('Insufficient permissions to access this table');
+            }
+          }
+          throw error;
         }
       } while (offset);
 
@@ -84,7 +119,6 @@ export class ImageBankService {
         totalRecords: allRecords.length
       });
 
-      // Traiter les enregistrements
       const images = allRecords
         .map(record => {
           try {
@@ -93,8 +127,8 @@ export class ImageBankService {
             const format = record.get('Format') as string;
             const projet = record.get('Projet') as string;
             
-            if (!hdUrl && !thumbnailUrl) {
-              logError('ImageBankService', 'Missing image URLs', {
+            if (!thumbnailUrl) {
+              logError('ImageBankService', 'Missing required fields', {
                 recordId: record.id,
                 title: record.get('Nom image')
               });
@@ -112,7 +146,7 @@ export class ImageBankService {
               "tags proposés": record.get('tags proposés') as string,
               categories: [],
               tags: [],
-              client: '',
+              client: (record.get('Client') as string[])?.[0] || '',
               width: 1200,
               height: 800,
               rights: {
@@ -129,18 +163,24 @@ export class ImageBankService {
             return null;
           }
         })
-        .filter((image): image is Image => image !== null);
+        .filter((img): img is Image => img !== null);
 
       logInfo('ImageBankService', 'Successfully processed images', {
         totalImages: images.length,
-        skippedRecords: allRecords.length - images.length
+        validImages: images.length,
+        invalidImages: allRecords.length - images.length
       });
 
       return images;
     } catch (error) {
       logError('ImageBankService', 'Failed to fetch images', error);
+      
+      if (error instanceof AirtableError) {
+        throw error;
+      }
+      
       throw new AirtableError(
-        'Impossible de récupérer les images',
+        'Failed to fetch images. Please check your connection and try again.',
         error instanceof Error ? error : undefined
       );
     }
@@ -150,7 +190,7 @@ export class ImageBankService {
     try {
       logInfo('ImageBankService', 'Updating image tags', { imageId });
 
-      await this.fetchWithRetry(() => 
+      await this.withRetry(() => 
         this.base(AIRTABLE_CONFIG.tables.images).update(imageId, {
           'tags proposés': tags
         })
@@ -160,7 +200,7 @@ export class ImageBankService {
     } catch (error) {
       logError('ImageBankService', 'Failed to update tags', error);
       throw new AirtableError(
-        'Impossible de mettre à jour les mots-clés',
+        'Failed to update tags',
         error instanceof Error ? error : undefined
       );
     }

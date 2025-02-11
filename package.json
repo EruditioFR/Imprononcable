@@ -7,7 +7,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start:api": "node --loader ts-node/esm src/services/make/api.ts"
+    "start:api": "node --loader ts-node/esm src/services/make/api.ts",
+    "test:email": "node --loader ts-node/esm --env-file=.env src/services/email/test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -39,11 +40,13 @@
     "cors": "^2.8.5",
     "date-fns": "^3.3.1",
     "dompurify": "^3.0.9",
+    "dotenv": "^16.4.5",
     "dropbox": "^10.34.0",
     "exif-js": "^2.3.0",
     "express": "^4.18.2",
     "jszip": "^3.10.1",
     "lucide-react": "^0.344.0",
+    "nodemailer": "^6.9.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.3",

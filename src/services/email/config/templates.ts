@@ -1,12 +1,3 @@
-import { z } from 'zod';
-
-export const emailTemplateSchema = z.object({
-  name: z.string(),
-  subject: z.string(),
-  fromName: z.string(),
-  fromEmail: z.string().email(),
-});
-
 export const EMAIL_TEMPLATES = {
   welcome: {
     name: 'welcome-email',
@@ -20,9 +11,9 @@ export const EMAIL_TEMPLATES = {
     fromName: 'CollabSpace',
     fromEmail: 'noreply@collabspace.com',
   },
-  passwordReset: {
-    name: 'password-reset',
-    subject: 'Réinitialisation de votre mot de passe',
+  sharedAlbum: {
+    name: 'shared-album',
+    subject: 'Album photo partagé',
     fromName: 'CollabSpace',
     fromEmail: 'noreply@collabspace.com',
   }

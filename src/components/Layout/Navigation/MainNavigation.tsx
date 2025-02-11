@@ -1,8 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Camera, Home, FileText, Newspaper } from 'lucide-react';
+import { Camera, Home, FileText, Newspaper, Album } from 'lucide-react';
+import { useRoleCheck } from '../../../hooks/useRoleCheck';
 
 export function MainNavigation() {
+  const { isAdmin } = useRoleCheck();
+
   return (
     <div className="flex space-x-8">
       <NavLink
@@ -60,6 +63,22 @@ export function MainNavigation() {
         <Newspaper className="h-4 w-4 mr-2" />
         Ensemble
       </NavLink>
+
+      {isAdmin() && (
+        <NavLink
+          to="/shared-albums/manage"
+          className={({ isActive }) =>
+            `inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+              isActive
+                ? 'border-primary-500 text-primary-500'
+                : 'border-transparent text-black hover:border-secondary-300 hover:text-primary-500'
+            }`
+          }
+        >
+          <Album className="h-4 w-4 mr-2" />
+          Albums partagés
+        </NavLink>
+      )}
     </div>
   );
 }

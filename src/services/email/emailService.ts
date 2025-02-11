@@ -1,15 +1,24 @@
-import { MailchimpTransactionalClient } from './providers/mailchimp/transactionalClient';
-import { EMAIL_TEMPLATES } from './config/templates';
+import { SmtpClient } from './providers/smtp/client';
+import { EmailError } from './errors';
 import type { EmailOptions } from './types/email';
 import { logEmailInfo } from './utils/logging';
 import { formatFrenchDate } from '../../utils/dates';
 
+interface SharedAlbumInvitation {
+  to: string;
+  albumTitle: string;
+  description: string;
+  password: string;
+  expiresAt: string;
+  albumUrl: string;
+}
+
 class EmailService {
   private static instance: EmailService;
-  private client: MailchimpTransactionalClient;
+  private client: SmtpClient;
 
   private constructor() {
-    this.client = MailchimpTransactionalClient.getInstance();
+    this.client = SmtpClient.getInstance();
   }
 
   public static getInstance(): EmailService {
@@ -19,81 +28,69 @@ class EmailService {
     return EmailService.instance;
   }
 
-  public async sendRightsRequest(
-    imageTitle: string,
-    imageUrl: string,
-    currentEndDate: string | null,
-    requestedStartDate: string,
-    requestedEndDate: string,
-    reason: string,
-    userName: string,
-    userEmail: string
-  ): Promise<void> {
-    const template = EMAIL_TEMPLATES.rightsRequest;
-    
-    const options: EmailOptions = {
-      to: [{ email: 'jbbejot+imprononcable@gmail.com', name: 'Administrateur Imprononcable' }],
-      from: {
-        email: template.fromEmail,
-        name: template.fromName
-      },
-      subject: `${template.subject} - ${imageTitle}`,
-      html: this.generateRightsRequestEmail(
-        imageTitle,
-        imageUrl,
-        currentEndDate,
-        requestedStartDate,
-        requestedEndDate,
-        reason,
-        userName,
-        userEmail
-      )
-    };
+  public async sendSharedAlbumInvitation(data: SharedAlbumInvitation): Promise<void> {
+    try {
+      logEmailInfo('EmailService', 'Sending shared album invitation', {
+        to: data.to,
+        albumTitle: data.albumTitle
+      });
 
-    logEmailInfo('EmailService', 'Sending rights request email', { userEmail });
-    await this.client.sendEmail(options);
+      const emailOptions: EmailOptions = {
+        to: [{ email: data.to }],
+        subject: `Album partagé : ${data.albumTitle}`,
+        html: this.generateSharedAlbumEmail(data),
+        text: this.generateSharedAlbumText(data)
+      };
+
+      await this.client.sendEmail(emailOptions);
+    } catch (error) {
+      throw new EmailError(
+        'Failed to send shared album invitation',
+        error instanceof Error ? error : undefined
+      );
+    }
   }
 
-  private generateRightsRequestEmail(
-    imageTitle: string,
-    imageUrl: string,
-    currentEndDate: string | null,
-    requestedStartDate: string,
-    requestedEndDate: string,
-    reason: string,
-    userName: string,
-    userEmail: string
-  ): string {
+  private generateSharedAlbumEmail(data: SharedAlbumInvitation): string {
     return `
-      <h2>Nouvelle demande d'extension de droits</h2>
+      <h2>Un album photo a été partagé avec vous</h2>
       
-      <h3>Informations de l'image</h3>
-      <img src="${imageUrl}" alt="${imageTitle}" style="max-width: 300px; margin: 10px 0; border-radius: 5px;">
-      <ul>
-        <li><strong>Titre:</strong> ${imageTitle}</li>
-        <li><strong>URL:</strong> <a href="${imageUrl}">${imageUrl}</a></li>
-        <li><strong>Date de fin actuelle:</strong> ${
-          currentEndDate ? formatFrenchDate(currentEndDate) : 'Non spécifiée'
-        }</li>
-      </ul>
-
-      <h3>Demande</h3>
-      <ul>
-        <li><strong>Date de début souhaitée:</strong> ${formatFrenchDate(requestedStartDate)}</li>
-        <li><strong>Date de fin souhaitée:</strong> ${formatFrenchDate(requestedEndDate)}</li>
-      </ul>
-
-      <h3>Motif de la demande</h3>
-      <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 10px 0;">
-        ${reason.replace(/\n/g, '<br>')}
+      <div style="margin: 20px 0; padding: 20px; background: #f3f4f6; border-radius: 8px;">
+        <h3 style="margin: 0 0 10px 0;">${data.albumTitle}</h3>
+        ${data.description ? `<p style="margin: 0;">${data.description}</p>` : ''}
       </div>
 
-      <h3>Informations utilisateur</h3>
-      <ul>
-        <li><strong>Nom:</strong> ${userName}</li>
-        <li><strong>Email:</strong> ${userEmail}</li>
-      </ul>
+      <p><strong>Mot de passe :</strong> ${data.password}</p>
+      <p><strong>Date d'expiration :</strong> ${formatFrenchDate(data.expiresAt)}</p>
+
+      <div style="margin: 30px 0;">
+        <a href="${data.albumUrl}" 
+           style="background: #055E4C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          Voir l'album
+        </a>
+      </div>
+
+      <p style="color: #666; font-size: 14px;">
+        Cet album expirera le ${formatFrenchDate(data.expiresAt)}. Assurez-vous de télécharger les images avant cette date.
+      </p>
     `;
+  }
+
+  private generateSharedAlbumText(data: SharedAlbumInvitation): string {
+    return `
+Un album photo a été partagé avec vous
+
+${data.albumTitle}
+${data.description ? `\n${data.description}` : ''}
+
+Mot de passe : ${data.password}
+Date d'expiration : ${formatFrenchDate(data.expiresAt)}
+
+Pour voir l'album, visitez :
+${data.albumUrl}
+
+Cet album expirera le ${formatFrenchDate(data.expiresAt)}. Assurez-vous de télécharger les images avant cette date.
+    `.trim();
   }
 }
 
