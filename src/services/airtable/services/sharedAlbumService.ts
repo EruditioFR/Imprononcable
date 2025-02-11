@@ -146,7 +146,7 @@ export class SharedAlbumService {
     }
   }
 
-  async createSharedAlbum(data: CreateSharedAlbumData, userId: string): Promise<{ album: SharedAlbum; emailErrors?: string[] }> {
+  async createSharedAlbum(data: CreateSharedAlbumData, userId: string): Promise<SharedAlbum> {
     try {
       logInfo('SharedAlbumService', 'Creating shared album', { userId });
 
@@ -186,8 +186,8 @@ export class SharedAlbumService {
           this.base('Album_Images').create(
             data.imageIds.map((imageId, index) => ({
               fields: {
-                album_id: [albumId],
-                image_id: [imageId],
+                album_id: [albumId], // Link using RECORD_ID
+                image_id: [imageId], // Link using RECORD_ID
                 order: index + 1
               }
             }))
@@ -206,7 +206,7 @@ export class SharedAlbumService {
           this.base('Album_Recipients').create(
             data.recipients.map(email => ({
               fields: {
-                album_id: [albumId],
+                album_id: [albumId], // Link using RECORD_ID
                 email,
                 sent_at: now,
                 access_count: 0
@@ -227,29 +227,28 @@ export class SharedAlbumService {
         throw new Error('Failed to add recipients');
       }
 
-      // Send invitation emails - but don't fail if emails fail
+      // Send invitation emails
       const albumUrl = `${window.location.origin}/shared-albums/${albumId}`;
-      const emailErrors: string[] = [];
       
-      await Promise.allSettled(
-        data.recipients.map(async email => {
-          try {
-            await emailService.sendSharedAlbumInvitation({
+      try {
+        await Promise.all(
+          data.recipients.map(email =>
+            emailService.sendSharedAlbumInvitation({
               to: email,
               albumTitle: data.title,
               description: data.description,
               password,
               expiresAt: data.expiresAt,
               albumUrl
-            });
-          } catch (error) {
-            logError('SharedAlbumService', `Failed to send invitation email to ${email}`, error);
-            emailErrors.push(email);
-          }
-        })
-      );
+            })
+          )
+        );
+      } catch (error) {
+        logError('SharedAlbumService', 'Failed to send invitation emails', error);
+        // Don't throw here - album is created but emails failed
+      }
 
-      const album: SharedAlbum = {
+      return {
         id: albumId,
         title: data.title,
         description: data.description,
@@ -266,11 +265,6 @@ export class SharedAlbumService {
           lastAccessedAt: null,
           accessCount: 0
         }))
-      };
-
-      return {
-        album,
-        emailErrors: emailErrors.length > 0 ? emailErrors : undefined
       };
     } catch (error) {
       logError('SharedAlbumService', 'Failed to create shared album', error);

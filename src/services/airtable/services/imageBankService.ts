@@ -8,8 +8,7 @@ export class ImageBankService {
   private base: Airtable.Base;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000;
-  private readonly PAGE_SIZE = 100;
-  private readonly CONCURRENT_REQUESTS = 3;
+  private readonly PAGE_SIZE = 50;
 
   constructor() {
     try {
@@ -17,8 +16,8 @@ export class ImageBankService {
         apiKey: AIRTABLE_CONFIG.apiKey,
         endpointUrl: 'https://api.airtable.com',
         apiVersion: '0.1.0',
-        noRetryIfRateLimited: false, // Enable built-in retries
-        requestTimeout: 300000 // Increase timeout to 5 minutes
+        noRetryIfRateLimited: true,
+        requestTimeout: 30000
       });
       this.base = new Airtable().base(AIRTABLE_CONFIG.baseId);
     } catch (error) {
@@ -38,15 +37,13 @@ export class ImageBankService {
       const isRateLimit = error instanceof Error && 
         (error.message.includes('rate_limit') || error.message.includes('429'));
       
-      const isNetworkError = error instanceof Error &&
-        (error.message.includes('network') || error.message.includes('timeout'));
-      
-      if ((isRateLimit || isNetworkError) && attempt < this.MAX_RETRIES) {
+      if (isRateLimit && attempt < this.MAX_RETRIES) {
         const delay = this.RETRY_DELAY * Math.pow(2, attempt);
-        logInfo('ImageBankService', `Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${this.MAX_RETRIES})`);
+        logInfo('ImageBankService', `Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${this.MAX_RETRIES})`);
         await this.sleep(delay);
         return this.withRetry(operation, attempt + 1);
       }
+
       throw error;
     }
   }
@@ -55,21 +52,16 @@ export class ImageBankService {
     try {
       logInfo('ImageBankService', 'Starting image fetch', { clientId });
 
-      let allRecords = [];
+      const allRecords = [];
       let offset: string | undefined;
       let pageCount = 0;
 
       do {
         try {
-          const filterFormula = clientId 
-            ? `{Client} = '${clientId}'`
-            : '';
-
           const query = this.base(AIRTABLE_CONFIG.tables.images).select({
             pageSize: this.PAGE_SIZE,
             offset,
             view: 'Grid view',
-            filterByFormula: filterFormula,
             fields: [
               'Nom image',
               'url drpbx HD',
@@ -99,16 +91,11 @@ export class ImageBankService {
           }
 
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('AUTHENTICATION_REQUIRED')) {
-              throw new AirtableError('Authentication failed - please check your API key');
-            }
-            if (error.message.includes('NOT_FOUND')) {
-              throw new AirtableError('Table or base not found - please check your configuration');
-            }
-            if (error.message.includes('INVALID_PERMISSIONS')) {
-              throw new AirtableError('Insufficient permissions to access this table');
-            }
+          if (error instanceof Error && error.message.includes('AUTHENTICATION_REQUIRED')) {
+            throw new AirtableError('Authentication failed - please check your API key');
+          }
+          if (error instanceof Error && error.message.includes('NOT_FOUND')) {
+            throw new AirtableError('Table or base not found - please check your configuration');
           }
           throw error;
         }
@@ -163,12 +150,11 @@ export class ImageBankService {
             return null;
           }
         })
-        .filter((img): img is Image => img !== null);
+        .filter((image): image is Image => image !== null);
 
       logInfo('ImageBankService', 'Successfully processed images', {
         totalImages: images.length,
-        validImages: images.length,
-        invalidImages: allRecords.length - images.length
+        skippedRecords: allRecords.length - images.length
       });
 
       return images;
